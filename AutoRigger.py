@@ -1,57 +1,119 @@
-#createSkeleton w/ ik handles 
 import maya.cmds as cmds
+from functools import partial
 
-centerX = 0
-centerY = 15
-centerZ = 0
-numSpineJoints = 6
+def createWindow(pTitle, pApplyCallback):
+    #set up window
+    windowID = 'windowID'
+    
+    if cmds.window(windowID, exists=True):
+        cmds.deleteUI(windowID)
+        
+    cmds.window(windowID, title=pTitle, resizeToFitChildren=True)
+    cmds.rowColumnLayout(numberOfColumns=2)
 
-if cmds.objExists('root'):
-    cmds.delete('root')
+    cmds.separator(h=10,style='none')
+    cmds.separator(h=10,style='none')
+    #display fields and save data
+    cmds.text(label='num spine joints')
+    iField =  cmds.intField(value =5)
 
-rootJoint = cmds.joint(p=(0,centerY,0), name='root')
+    #callbacks here
+    cmds.text(label='Step 1:')
+    cmds.button(label='Load Sample Rig', command=functools.partial(SampleCallback, iField))
+    cmds.separator(h=10,style='none')
+    cmds.separator(h=10,style='none')
+    
+    cmds.text(label='Step 2:')
+    cmds.text(label='Adjust joints to fit mesh')
+    cmds.separator(h=10,style='none')
+    cmds.separator(h=10,style='none')
+    
+    cmds.text(label='Step 3:')    
+    cmds.button(label='Mirror Joints', command=MirrorCallback)
+    cmds.separator(h=10,style='none')
+    cmds.separator(h=10,style='none')
+    
+    cmds.text(label='Step 4:')
+    cmds.button(label='Create Handles', command=HandlesCallback)
+    cmds.separator(h=10,style='none')
+    cmds.separator(h=10,style='none')
+    
+    cmds.text(label='Step5:')
+    cmds.button(label='Bind Skin', command=BindCallback)
+    cmds.separator(h=10,style='none')
+    cmds.separator(h=10,style='none')
+    
+    cmds.separator(h=10,style='none')
+    
+    def cancelCallback(*pArgs):
+		if cmds.window(windowID, exists=True):
+			cmds.deleteUI(windowID)
+    
+    cmds.button(label="Cancel", command=cancelCallback)
+    
+    cmds.showWindow()
+        
+	
+def HandlesCallback(*pArgs):
+    l_armPosition = cmds.joint('leftArmIK', query=True, position=True)
+    armHandle = cmds.circle()
+    #cmds.select('leftShoulder')
+    cmds.move(int((l_armPosition))
+	
+def BindCallback(*Args):
+    #cmds.select('root')
+    cmds.bindSkin('root')
+	
+def MirrorCallback(*pArgs):
+    if cmds.objExists('rightShoulder'):
+        cmds.delete('rightShoulder')
+        #cmds.delete('rightArmIK')
+    else:
+        cmds.mirrorJoint('leftShoulder', myz=True, mxz=True, searchReplace=['left','right'])
+    if cmds.objExists('right_upLeg'):
+        cmds.delete('right_upLeg')
+        #cmds.delete('rightLegIK')
+    else:
+        cmds.mirrorJoint('left_upLeg', myz=True,searchReplace=['left','right'])
+	
+def SampleCallback(field, *pArgs):
+    centerX = 0
+    centerY = 15
+    centerZ = 0
+
+    if cmds.objExists('root'):
+        cmds.delete('root')
+
+    rootJoint = cmds.joint(p=(0,centerY,0), name='root')
                 
-#spine
-for i in range(1,numSpineJoints):
-    cmds.joint(p=(0,(2*i+centerY),0), name='spine#')
+    numSpineJoints = cmds.intField(field, query=True, value=True)
+    #pNumSpine = numSpineJoints
+    for i in range(1,numSpineJoints):
+        cmds.joint(p=(0,(2*i+centerY),0), name='spine#')
   		
-cmds.ikHandle(sj='spine1',ee='spine5', name='spineHandleIK')
+    #cmds.ikHandle(sj='spine1',ee='spine5', name='spineHandleIK')
     
-cmds.select('spine5')    
-cmds.joint(p=(0,(numSpineJoints-2)*numSpineJoints,1), name='collarBone')
+    cmds.select('spine'+str(numSpineJoints-1))    
+    cmds.joint(p=(0,2*i+centerY,1), name='collarBone')
 
-#left arm
-cmds.joint(p=(4,(numSpineJoints-2)*numSpineJoints,1),name='leftShoulder')
-cmds.joint(p=(4,(numSpineJoints-3)*numSpineJoints,0),name='leftElbow')
-cmds.joint(p=(4,(numSpineJoints-4)*numSpineJoints,1),name='leftWrist')
-cmds.joint(p=(4,(numSpineJoints-4)*numSpineJoints-1,1),name='leftHand')
-cmds.ikHandle(sj='leftShoulder',ee='leftWrist', name='leftArmIK')
-    
-cmds.select('collarBone')
-#right arm
-cmds.joint(p=(-4,(numSpineJoints-2)*numSpineJoints,1),name='rightShoulder')
-cmds.joint(p=(-4,(numSpineJoints-3)*numSpineJoints,0),name='rightElbow')
-cmds.joint(p=(-4,(numSpineJoints-4)*numSpineJoints,1),name='rightWrist')
-cmds.joint(p=(-4,(numSpineJoints-4)*numSpineJoints-1,1),name='rightHand')                
-cmds.ikHandle(sj='rightShoulder',ee='rightWrist', name='rightArmIK')
+    #left arm
+    cmds.joint(p=(3,2*i+centerY,1),name='leftShoulder')
+    cmds.joint(p=(numSpineJoints+3,2*i+centerY,.75),name='leftElbow')
+    cmds.joint(p=((numSpineJoints+3)*2,2*i+centerY,1),name='leftWrist')
+    cmds.joint(p=((numSpineJoints+3)*2+.5,2*i+centerY,1),name='leftHand')
+    cmds.ikHandle(sj='leftShoulder',ee='leftWrist', name='leftArmIK')
 
-cmds.joint(p=(0,centerY-2,centerZ+1), name='pelvis')
-cmds.parent('pelvis', 'root')
-# left leg
-cmds.joint(p=(centerX+3,centerY-2,0), name='left_upLeg')
-cmds.joint(p=(centerX+3,centerY-7,centerZ+.5), name='left_loLeg')
-cmds.joint(p=(centerX+3,centerY-12,0), name='left_foot')
-cmds.joint(p=(centerX+3,centerY-14,1), name='left_ball')
-cmds.joint(p=(centerX+3,centerY-14,3), name='left_ball_end')
-cmds.ikHandle(sj='left_upLeg',ee='left_foot', name='leftLegIK')
-#right leg
-cmds.select('pelvis')
-cmds.joint(p=(centerX-3,centerY-2,0), name='right_upLeg')
-cmds.joint(p=(centerX-3,centerY-7,centerZ+.5), name='right_loLeg')
-cmds.joint(p=(centerX-3,centerY-12,0), name='right_foot')
-cmds.joint(p=(centerX-3,centerY-14,1), name='right_ball')
-cmds.joint(p=(centerX-3,centerY-14,3), name='right_ball_end')
-cmds.ikHandle(sj='right_upLeg',ee='right_foot', name='rightLegIK')
+    cmds.joint(p=(0,centerY-2,centerZ+1), name='pelvis')
+    cmds.parent('pelvis', 'root')
+    # left leg
+    cmds.joint(p=(centerX+3,centerY-2,0), name='left_upLeg')
+    cmds.joint(p=(centerX+3,centerY-7,centerZ+.5), name='left_loLeg')
+    cmds.joint(p=(centerX+3,centerY-12,0), name='left_foot')
+    cmds.joint(p=(centerX+3,centerY-14,1), name='left_ball')
+    cmds.joint(p=(centerX+3,centerY-14,3), name='left_ball_end')
+    cmds.ikHandle(sj='left_upLeg',ee='left_foot', name='leftLegIK')
 
-#joint orientation 
-cmds.joint('root', edit = True, orientJoint = 'xyz',sao= 'yup', ch = True, zso= True)
+    #joint orientation 
+    cmds.joint('root', edit = True, orientJoint = 'xyz',sao= 'yup', ch = True, zso= True)
+        
+createWindow('Auto Rigger', applyCallback)
